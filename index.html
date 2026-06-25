@@ -153,6 +153,9 @@ input,textarea,button,select{font-family:inherit;color:inherit;}
 .medit input{width:100%;border:1px solid var(--ln);border-radius:8px;background:var(--fi);padding:7px 2px;font-size:14px;font-weight:800;text-align:center;color:var(--ink);font-variant-numeric:tabular-nums;}
 .medit.pro input{background:var(--ib);color:var(--ig);border-color:var(--ib);}
 .medit input:focus{outline:none;border-color:var(--ink);}
+.medit.kcal-cell input{background:var(--f2);color:var(--mu);border-style:dashed;cursor:default;}
+.auto-tag{font-size:8px;font-weight:700;background:var(--mu);color:var(--bg);border-radius:8px;padding:1px 4px;margin-left:3px;letter-spacing:.02em;vertical-align:1px;}
+.macro-note{font-size:11px;color:var(--mu);line-height:1.5;margin:6px 2px 2px;letter-spacing:.01em;}
 .bdwn-btn{font-size:12px;font-weight:600;color:var(--mu);background:none;border:none;padding:6px 0 2px;cursor:pointer;letter-spacing:.01em;}
 .bdwn{font-size:12px;color:var(--mu);line-height:1.7;padding:10px 12px;background:var(--fi);border-radius:9px;display:none;margin-top:6px;white-space:pre-wrap;letter-spacing:.01em;} .bdwn.show{display:block;}
 .thumb{margin-top:10px;height:120px;border-radius:10px;background-size:cover;background-position:center;border:1px solid var(--ln);display:none;opacity:0;transition:opacity .3s ease;} .thumb.show{display:block;} .thumb.show.in{opacity:1;}
@@ -512,7 +515,7 @@ const DRINK={kcal:150,carb:10,protein:25,fat:3.5};
 const MEALS=[['breakfast','아침','예: 그릭요거트 200g, 아몬드 10알, 사과 반 개'],['lunch','점심','예: 백반 — 잡곡밥 한 공기, 제육볶음, 미역국, 나물'],['dinner','저녁','예: 닭다리살 200g, 잡곡밥 2/3공기, 김치'],['snack','간식','예: 단백질바 1개, 바나나']];
 const DOW=['일','월','화','수','목','금','토'];
 const CONF={low:'낮음',mid:'보통',high:'높음',manual:'직접 입력'};
-const PROMPT='너는 한식에 능통한 영양 분석가야. 아래 한 끼 식사를 보고 탄수화물·단백질·지방(g)과 총 열량(kcal)을 현실적으로 추정해. 분량이 모호하면 한국 성인 1인분 평균으로 가정해서 반드시 숫자를 채워(거절·빈 값 금지). breakdown 필드에 주요 식재료별 추정 근거(예: "계란 2개→단12g, 잡곡밥 180g→탄60g"). confidence: high=구체적, mid=메뉴만, low=매우 모호. margin: 오차범위(정수%). 출력은 아래 JSON 한 줄만:\n{"kcal":number,"carb":number,"protein":number,"fat":number,"summary":"한국어 25자이내","confidence":"low|mid|high","margin":number,"breakdown":"근거"}';
+const PROMPT='너는 한식에 정통한 영양 분석가다. 주어진 한 끼 식사(사진/글/둘다)의 탄수화물·단백질·지방(g)과 총열량(kcal)을 추정한다.\n\n[분량 추정]\n- 사진이 있으면 식판·밥그릇·국그릇·숟가락·젓가락·손가락·손바닥처럼 크기를 아는 기준물과 비교해 각 음식의 실제 양(g)을 먼저 추정하라. 참고: 성인 손바닥≈밥 한공기(210g), 밥숟가락 하나≈15g, 밥공기 가득≈210g, 종이컵≈200ml.\n- 어떤 기준물로 양을 가늠했는지 breakdown에 반드시 적어라. 예: 밥은 공기의 80%≈170g → 탄56g.\n- 사진이 없으면 글 설명만으로 한국 1인분 평균을 적용한다. 글과 사진이 모두 있으면 종합하되 글의 분량 표현을 우선한다.\n\n[일관성 — 매우 중요]\n- breakdown에 적은 각 재료의 탄·단·지 추정치의 합이 carb/protein/fat 값과 일치해야 한다(±2g).\n- kcal은 carb×4+protein×4+fat×9 와 일치해야 한다.\n- breakdown에는 실제로 사진에 보이거나 글에 적힌 음식만 넣어라. 없는 음식을 지어내지 마라.\n\nconfidence: high=사진+기준물 명확 또는 분량 구체적, mid=메뉴만, low=매우 모호. margin: 오차범위(정수%).\n출력은 아래 JSON 한 줄만(다른 텍스트 금지):\n{"kcal":number,"carb":number,"protein":number,"fat":number,"summary":"한국어 25자이내","confidence":"low|mid|high","margin":number,"breakdown":"재료별 양 추정 기준과 탄단지 근거를 줄바꿈으로"}';
 const WO={
   A:{label:'A · 하체',items:[{n:'케틀벨 스윙',info:'3~4세트 · 15~20회',rest:60},{n:'고블릿 스쿼트',info:'3세트 · 10~15회',rest:90},{n:'한다리 RDL',info:'3~4세트 · 8~12회/쪽',rest:90},{n:'글루트 브릿지',info:'3~4세트 · 12~15회',rest:60},{n:'데드버그',info:'3세트 · 8~12회/쪽',rest:60},{n:'플랭크',info:'3세트 · 30~45초 유지',rest:60}]},
   B:{label:'B · 상체',items:[{n:'풀업',info:'4세트 · 4~7개 (RIR 2~3)',rest:90},{n:'케틀벨 원암 로우',info:'3~4세트 · 10~12회/쪽',rest:75},{n:'푸시업',info:'3~4세트 · 8~12회',rest:75},{n:'오버헤드 프레스',info:'3세트 · 8~12회',rest:90},{n:'Y-T-W 레이즈',info:'3세트 · 10~15회',rest:60}]},
@@ -602,8 +605,9 @@ function buildMeals(){
               '<div class="medit"><div class="ml">탄</div><input type="number" data-ec min="0" placeholder="0"></div>'+
               '<div class="medit pro"><div class="ml">단</div><input type="number" data-ep min="0" placeholder="0"></div>'+
               '<div class="medit"><div class="ml">지</div><input type="number" data-ef min="0" placeholder="0"></div>'+
-              '<div class="medit"><div class="ml">kcal</div><input type="number" data-ek min="0" placeholder="0"></div>'+
+              '<div class="medit kcal-cell"><div class="ml">kcal<span class="auto-tag">자동</span></div><input type="number" data-ek readonly tabindex="-1" placeholder="0"></div>'+
             '</div>'+
+            '<div class="macro-note">탄·단·지를 수정하면 칼로리는 자동으로 다시 계산돼요 (탄·단 4, 지 9 kcal/g)</div>'+
             '<button class="bdwn-btn" data-bdwnbtn>계산 근거 보기</button>'+
             '<div class="bdwn" data-bdwn></div>'+
           '</div>'+
@@ -620,8 +624,8 @@ function buildMeals(){
     file.onchange=async e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async()=>{const small=await compressImage(r.result);day.meals[k].img=small;thumb.style.backgroundImage='url('+small+')';thumb.classList.remove('in');thumb.classList.add('show');requestAnimationFrame(()=>requestAnimationFrame(()=>thumb.classList.add('in')));save();};r.readAsDataURL(f);};
     btn.onclick=()=>analyzeMeal(k,card);
     bdwnBtn.onclick=()=>{bdwn.classList.toggle('show');bdwnBtn.textContent=bdwn.classList.contains('show')?'계산 근거 닫기':'계산 근거 보기';};
-    const onEdit=()=>{const m=day.meals[k];m.carb=+ec.value||0;m.protein=+ep.value||0;m.fat=+ef.value||0;m.kcal=+ek.value||0;if(m.kcal||m.protein){m.confidence='manual';m.analyzed=true;}else m.analyzed=false;updateMealHeader(k);save();renderTotals();renderChips();};
-    [ec,ep,ef,ek].forEach(el=>el.addEventListener('input',onEdit));
+    const onEdit=()=>{const m=day.meals[k];m.carb=+ec.value||0;m.protein=+ep.value||0;m.fat=+ef.value||0;m.kcal=Math.round(m.carb*4+m.protein*4+m.fat*9);ek.value=m.kcal||'';if(m.carb||m.protein||m.fat){m.confidence='manual';m.analyzed=true;}else m.analyzed=false;updateMealHeader(k);save();renderTotals();renderChips();};
+    [ec,ep,ef].forEach(el=>el.addEventListener('input',onEdit));
   });
 }
 
@@ -653,8 +657,8 @@ async function analyzeMeal(k,card){
   if(!m.desc&&!m.img){const o=btn.textContent;btn.textContent='메뉴 입력 또는 사진을 추가하세요';setTimeout(()=>btn.textContent=o,1600);return;}
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span> 분석 중…';
   const build=strict=>{const content=[];if(m.img){const pts=m.img.split(',');const mt=(m.img.match(/data:(.*?);/)||[])[1]||'image/jpeg';content.push({type:'image',source:{type:'base64',media_type:mt,data:pts[1]}});}content.push({type:'text',text:PROMPT+(m.desc?('\n설명: '+m.desc):'')+(strict?'\nJSON 한 줄만.':'')});return [{role:'user',content}];};
-  try{let j=tryParse(await callClaude(build(false)));if(!j)j=tryParse(await callClaude(build(true)));if(!j)throw new Error('결과 해석 실패');
-    Object.assign(m,{kcal:Math.round(j.kcal||0),carb:Math.round(j.carb||0),protein:Math.round(j.protein||0),fat:Math.round(j.fat||0),summary:j.summary||'',confidence:j.confidence||'mid',margin:Math.round(j.margin||15),breakdown:j.breakdown||'',analyzed:true});
+  try{let j=tryParse(await callClaude(build(false),1100));if(!j)j=tryParse(await callClaude(build(true),1100));if(!j)throw new Error('결과 해석 실패');
+    {const cb=Math.round(j.carb||0),pr=Math.round(j.protein||0),ft=Math.round(j.fat||0);const calc=Math.round(cb*4+pr*4+ft*9);Object.assign(m,{carb:cb,protein:pr,fat:ft,kcal:calc,summary:j.summary||'',confidence:j.confidence||'mid',margin:Math.round(j.margin||15),breakdown:j.breakdown||'',analyzed:true});}
     save();fillMeals();renderTotals();renderChips();btn.disabled=false;
     if(!mealExpanded[k])toggleMeal(k);
   }catch(e){btn.disabled=false;btn.textContent=m.analyzed?'다시 분석':'분석하기';err.textContent='⚠ 분석 실패: '+(e.message||'오류')+'. API 키가 없으면 ⚙에서 설정하거나 직접 입력하세요.';err.classList.add('show');}
